@@ -11,6 +11,12 @@ type TasksResp struct {
 }
 
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeErrorText(w, http.StatusMethodNotAllowed, "unsupported method")
+		return
+	}
+
 	var (
 		tasks []*db.Task
 		err   error
@@ -21,11 +27,11 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 		tasks, err = db.Tasks(50)
 	}
 	if err != nil {
-		writeError(w, err)
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	if tasks == nil {
 		tasks = make([]*db.Task, 0)
 	}
-	writeJSON(w, TasksResp{Tasks: tasks})
+	writeJSON(w, http.StatusOK, TasksResp{Tasks: tasks})
 }

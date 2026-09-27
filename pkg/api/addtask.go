@@ -41,22 +41,22 @@ func checkDate(task *db.Task) error {
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task db.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		writeError(w, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	if task.Title == "" {
-		writeErrorText(w, "task title is required")
+		writeErrorText(w, http.StatusBadRequest, "task title is required")
 		return
 	}
 	if err := checkDate(&task); err != nil {
-		writeError(w, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	id, err := db.AddTask(&task)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
+	writeJSON(w, http.StatusOK, map[string]string{"id": fmt.Sprintf("%d", id)})
 }

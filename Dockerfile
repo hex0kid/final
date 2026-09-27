@@ -12,5 +12,4 @@ COPY web /app/web
 ENV TODO_PORT=7540
 ENV TODO_DBFILE=/data/scheduler.db
 VOLUME ["/data"]
-EXPOSE 7540
 CMD ["/app/scheduler"]

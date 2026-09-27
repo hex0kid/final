@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"go_final_project/pkg/db"
@@ -18,58 +19,71 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		deleteTaskHandler(w, r)
 	default:
-		writeErrorText(w, "unsupported method")
+		w.Header().Set("Allow", "GET, POST, PUT, DELETE")
+		writeErrorText(w, http.StatusMethodNotAllowed, "unsupported method")
 	}
 }
 
 func getTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	if id == "" {
-		writeErrorText(w, "task id is required")
+		writeErrorText(w, http.StatusBadRequest, "task id is required")
 		return
 	}
 	task, err := db.GetTask(id)
 	if err != nil {
-		writeError(w, err)
+		if errors.Is(err, db.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, task)
+	writeJSON(w, http.StatusOK, task)
 }
 
 func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task db.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		writeError(w, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	if task.ID == "" {
-		writeErrorText(w, "task id is required")
+		writeErrorText(w, http.StatusBadRequest, "task id is required")
 		return
 	}
 	if task.Title == "" {
-		writeErrorText(w, "task title is required")
+		writeErrorText(w, http.StatusBadRequest, "task title is required")
 		return
 	}
 	if err := checkDate(&task); err != nil {
-		writeError(w, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	if err := db.UpdateTask(&task); err != nil {
-		writeError(w, err)
+		if errors.Is(err, db.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, map[string]any{})
+	writeJSON(w, http.StatusOK, map[string]any{})
 }
 
 func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	if id == "" {
-		writeErrorText(w, "task id is required")
+		writeErrorText(w, http.StatusBadRequest, "task id is required")
 		return
 	}
 	if err := db.DeleteTask(id); err != nil {
-		writeError(w, err)
+		if errors.Is(err, db.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, map[string]any{})
+	writeJSON(w, http.StatusOK, map[string]any{})
 }

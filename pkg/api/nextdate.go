@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -172,11 +173,17 @@ func NextDate(now time.Time, dstart, repeat string) (string, error) {
 }
 
 func nextDayHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
+		return
+	}
+
 	now := time.Now()
 	if value := r.FormValue("now"); value != "" {
 		parsed, err := time.Parse(DateFormat, value)
 		if err != nil {
-			_, _ = fmt.Fprint(w, err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		now = parsed
@@ -184,8 +191,10 @@ func nextDayHandler(w http.ResponseWriter, r *http.Request) {
 
 	next, err := NextDate(now, r.FormValue("date"), r.FormValue("repeat"))
 	if err != nil {
-		_, _ = fmt.Fprint(w, err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	_, _ = fmt.Fprint(w, next)
+	if _, err := fmt.Fprint(w, next); err != nil {
+		log.Printf("write next date: %v", err)
+	}
 }

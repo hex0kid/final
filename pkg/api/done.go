@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -9,37 +10,50 @@ import (
 
 func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeErrorText(w, "unsupported method")
+		w.Header().Set("Allow", http.MethodPost)
+		writeErrorText(w, http.StatusMethodNotAllowed, "unsupported method")
 		return
 	}
 	id := r.FormValue("id")
 	if id == "" {
-		writeErrorText(w, "task id is required")
+		writeErrorText(w, http.StatusBadRequest, "task id is required")
 		return
 	}
 
 	task, err := db.GetTask(id)
 	if err != nil {
-		writeError(w, err)
+		if errors.Is(err, db.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if task.Repeat == "" {
 		if err := db.DeleteTask(id); err != nil {
-			writeError(w, err)
+			if errors.Is(err, db.ErrTaskNotFound) {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 	} else {
 		next, err := NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
-			writeError(w, err)
+			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 		if err := db.UpdateDate(next, id); err != nil {
-			writeError(w, err)
+			if errors.Is(err, db.ErrTaskNotFound) {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 	}
 
-	writeJSON(w, map[string]any{})
+	writeJSON(w, http.StatusOK, map[string]any{})
 }
